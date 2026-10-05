@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en" data-visualize-standalone>
+<html lang="zh-CN" data-visualize-standalone>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
-<title>Nanshan Tennis Courts</title>
+<title>南山·蛇口网球场查询</title>
 <style>:root {
   color-scheme: light dark;
   background-color: var(
@@ -1527,8 +1527,193 @@ html>body{padding:0}</style>
 })();
 </script>
 <div id="courts-root">
-  <h3>南山·蛇口网球场（按距离 · 比价）</h3>
   <style>
+    :root {
+      --ns-lime: light-dark(#d4f04a, #cfe94f);
+      --ns-lime-deep: light-dark(#b4d92c, #bcdc46);
+      --ns-coral: light-dark(#ff7a59, #ff9276);
+      --ns-sky: light-dark(#3fb0ff, #6cc4ff);
+      --ns-ink: light-dark(#1e2a15, #eef5e4);
+      --ns-muted: light-dark(#5d6d52, #a9b8a0);
+      --ns-panel: light-dark(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.06));
+      --ns-card: light-dark(#ffffff, rgba(255, 255, 255, 0.055));
+      --ns-line: light-dark(rgba(30, 42, 21, 0.14), rgba(255, 255, 255, 0.16));
+      --ns-shadow: 0 12px 34px light-dark(rgba(80, 110, 40, 0.16), rgba(0, 0, 0, 0.55));
+      --ns-round: 20px;
+      --ns-font: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    /* 页面底色只在独立网页里生效，嵌在对话里时保持原有样式 */
+    html[data-visualize-standalone] body {
+      background:
+        radial-gradient(1100px 520px at 8% -8%, light-dark(#f1ffd6, #1c2413), transparent 70%),
+        radial-gradient(900px 480px at 100% 2%, light-dark(#ffe9ec, #241a1a), transparent 70%),
+        light-dark(#f9fcf2, #10130d);
+      background-attachment: fixed;
+    }
+
+    #courts-root {
+      box-sizing: border-box;
+      font-family: var(--ns-font);
+      color: var(--ns-ink);
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    html[data-visualize-standalone] #courts-root {
+      background: var(--ns-panel);
+      border-radius: var(--ns-round);
+      padding: 16px 18px 22px;
+      box-shadow: var(--ns-shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    html[data-visualize-standalone] #courts-root::before {
+      content: "";
+      display: block;
+      height: 6px;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      background: repeating-linear-gradient(90deg, var(--ns-lime) 0 26px, transparent 26px 42px);
+    }
+
+    .ns-hero {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .ns-hero > div {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .ns-ball {
+      font-size: 34px;
+      line-height: 1;
+      animation: ns-bounce 1.4s cubic-bezier(0.3, 1.6, 0.5, 1) 1 both;
+    }
+    @keyframes ns-bounce {
+      0% {
+        transform: translateY(-26px) scale(0.7);
+      }
+      60% {
+        transform: translateY(0) scale(1.06);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+    .ns-hero h3 {
+      margin: 0;
+      font-size: 25px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .ns-sub {
+      margin: 3px 0 0;
+      font-size: 13px;
+      color: var(--ns-muted);
+    }
+    .ns-sticker {
+      margin-left: auto;
+      padding: 6px 13px;
+      border-radius: 999px;
+      background: var(--ns-lime);
+      color: #24301a;
+      font-size: 13px;
+      font-weight: 700;
+      transform: rotate(-3deg);
+      box-shadow: 0 3px 0 light-dark(rgba(60, 80, 20, 0.18), rgba(0, 0, 0, 0.4));
+    }
+
+    #courts-root .viz-controls {
+      gap: 8px;
+    }
+    #courts-root .btn {
+      border-radius: 999px;
+      font-weight: 600;
+      padding: 6px 14px;
+      transition: transform 0.12s ease, background-color 0.15s ease;
+    }
+    #courts-root .btn:active {
+      transform: scale(0.95);
+    }
+    #courts-root .btn[aria-pressed="true"] {
+      background: var(--ns-lime);
+      color: #24301a;
+      box-shadow: 0 2px 0 light-dark(rgba(60, 80, 20, 0.2), rgba(0, 0, 0, 0.4));
+    }
+    #courts-root .form-control,
+    #courts-root .form-select {
+      border-radius: 999px;
+    }
+    #courts-root .form-control:focus,
+    #courts-root .form-select:focus {
+      border-color: var(--ns-lime-deep);
+    }
+
+    #courts-root .table thead th {
+      color: var(--ns-muted);
+      font-weight: 600;
+      border-bottom: 2px solid var(--ns-line);
+    }
+    #courts-root .table td {
+      border-top: 1px solid var(--ns-line);
+    }
+    #courts-root .table tbody tr:hover {
+      background: light-dark(rgba(212, 240, 74, 0.18), rgba(212, 240, 74, 0.08));
+    }
+    #courts-root .ns-price {
+      font-weight: 700;
+    }
+    #courts-root .viz-badge {
+      border-radius: 999px;
+      background: var(--ns-lime);
+      color: #24301a;
+      font-weight: 700;
+    }
+
+    #courts-list hr {
+      display: none;
+    }
+    #courts-list .ns-item {
+      background: var(--ns-card);
+      border: 1px dashed var(--ns-line);
+      border-radius: 16px;
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+    #courts-list .ns-item:first-child {
+      margin-top: 0;
+    }
+    #courts-list .form-check {
+      font-weight: 700;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ns-ball {
+        animation: none;
+      }
+      #courts-root .btn {
+        transition: none;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .ns-hero h3 {
+        font-size: 21px;
+      }
+      .ns-ball {
+        font-size: 28px;
+      }
+      .ns-sticker {
+        flex: 0 0 auto;
+        margin-left: 0;
+        margin-top: 2px;
+      }
+    }
+
     #courts-list {
       display: none;
     }
@@ -1541,6 +1726,14 @@ html>body{padding:0}</style>
       }
     }
   </style>
+  <div class="ns-hero">
+    <span class="ns-ball" aria-hidden="true">🎾</span>
+    <div>
+      <h3>南山 · 蛇口网球场</h3>
+      <p class="ns-sub">按距离 · 比价 · 看清遮阴和风雨场</p>
+    </div>
+    <span class="ns-sticker">提前一天约</span>
+  </div>
   <div class="viz-controls">
     <label class="form-label" for="courts-origin">起点</label>
     <input
@@ -1571,12 +1764,12 @@ html>body{padding:0}</style>
     </select>
   </div>
   <div class="viz-controls">
-    <button class="btn" type="button" data-scene="all" aria-pressed="true">全部</button>
-    <button class="btn" type="button" data-scene="early" aria-pressed="false">大清早</button>
-    <button class="btn" type="button" data-scene="night" aria-pressed="false">晚场</button>
-    <button class="btn" type="button" data-scene="indoor" aria-pressed="false">下雨天 · 室内</button>
-    <button class="btn" type="button" data-scene="covered" aria-pressed="false">遮阴 · 有棚</button>
-    <button class="btn" type="button" data-scene="free" aria-pressed="false">免费场</button>
+    <button class="btn" type="button" data-scene="all" aria-pressed="true">🎾 全部</button>
+    <button class="btn" type="button" data-scene="early" aria-pressed="false">🌅 大清早</button>
+    <button class="btn" type="button" data-scene="night" aria-pressed="false">🌙 晚场</button>
+    <button class="btn" type="button" data-scene="indoor" aria-pressed="false">☔️ 下雨天 · 室内</button>
+    <button class="btn" type="button" data-scene="covered" aria-pressed="false">⛱ 遮阴 · 有棚</button>
+    <button class="btn" type="button" data-scene="free" aria-pressed="false">🎁 免费场</button>
     <span class="text-small text-muted" id="courts-status" aria-live="polite"></span>
   </div>
   <div class="table-responsive" id="courts-table-wrap">
@@ -1599,8 +1792,8 @@ html>body{padding:0}</style>
   </div>
   <div id="courts-list"></div>
   <div class="viz-controls" id="courts-share-bar" hidden>
-    <span class="text-small text-muted" id="courts-picked">已选 0 个场地</span>
-    <button class="btn btn-primary" type="button" id="courts-copy">复制发给客户</button>
+    <span class="text-small text-muted" id="courts-picked">🧺 已选 0 个场地</span>
+    <button class="btn btn-primary" type="button" id="courts-copy">📋 复制发给客户</button>
     <button class="btn btn-ghost" type="button" id="courts-clear">清空选择</button>
     <span class="text-small text-muted" id="courts-copy-status" aria-live="polite"></span>
   </div>
@@ -1771,7 +1964,7 @@ html>body{padding:0}</style>
 
   function priceCell(value, cheapest) {
     const td = document.createElement("td");
-    td.className = "text-nowrap tabular-nums";
+    td.className = "text-nowrap tabular-nums ns-price";
     if (value === null || value === undefined) {
       td.textContent = "—";
       return td;
@@ -1871,8 +2064,8 @@ html>body{padding:0}</style>
     const chips = document.createElement("div");
     chips.className = "text-nowrap";
     const options = [
-      ["shade", "遮阴", "白天有遮挡，不晒"],
-      ["cover", "风雨场", "有顶棚，能挡风遮雨"]
+      ["shade", "🌤 遮阴", "白天有遮挡，不晒"],
+      ["cover", "☂ 风雨场", "有顶棚，能挡风遮雨"]
     ];
     for (const option of options) {
       const chip = document.createElement("button");
@@ -1922,6 +2115,7 @@ html>body{padding:0}</style>
 
   function makeListItem(row, origin) {
     const item = document.createElement("div");
+    item.className = "ns-item";
 
     const label = document.createElement("label");
     label.className = "form-check";
@@ -1999,7 +2193,7 @@ html>body{padding:0}</style>
     const picked = visibleRows.filter(function (row) {
       return selected.has(String(row.id));
     });
-    pickedEl.textContent = "已选 " + picked.length + " 个场地";
+    pickedEl.textContent = "🧺 已选 " + picked.length + " 个场地";
     const hasPicked = picked.length > 0;
     const display = hasPicked ? "" : "none";
     shareBar.hidden = !hasPicked;
@@ -2038,13 +2232,13 @@ html>body{padding:0}</style>
       const td = document.createElement("td");
       td.colSpan = 9;
       td.className = "text-muted";
-      td.textContent = "这个条件下暂时没有合适的场地";
+      td.textContent = "🎾 这个条件下暂时没有合适的场地";
       tr.append(td);
       body.append(tr);
 
       const empty = document.createElement("div");
       empty.className = "text-muted";
-      empty.textContent = "这个条件下暂时没有合适的场地";
+      empty.textContent = "🎾 这个条件下暂时没有合适的场地";
       listEl.append(empty);
     }
 
