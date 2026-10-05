@@ -1721,7 +1721,6 @@ html>body{padding:0}</style>
       margin: 4px 0 14px;
     }
     #courts-map {
-      display: none;
       height: 68vh;
       min-height: 340px;
       border-radius: 16px;
@@ -1732,7 +1731,7 @@ html>body{padding:0}</style>
     #courts-root[data-view="map"] .courts-panel {
       display: none;
     }
-    #courts-root[data-view="map"] #courts-map {
+    #courts-root[data-view="map"] .ns-map-wrap {
       display: block;
     }
     #courts-map .ns-map-note {
@@ -1753,21 +1752,90 @@ html>body{padding:0}</style>
       font-size: 12px;
       color: var(--ns-muted);
     }
-    .ns-pop {
-      min-width: 200px;
-      font-family: var(--ns-font);
-      line-height: 1.55;
-      color: #1e2a15;
+    .ns-map-wrap {
+      position: relative;
+      display: none;
     }
-    .ns-pop strong {
-      font-size: 15px;
+    .ns-sheet {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      z-index: 700;
+      max-height: 66%;
+      overflow: auto;
+      padding: 14px 16px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--ns-line);
+      background: light-dark(rgba(255, 255, 255, 0.97), rgba(22, 26, 18, 0.96));
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+      color: var(--ns-ink);
+      opacity: 0;
+      transform: translateY(14px);
+      pointer-events: none;
+      transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.1), opacity 0.16s ease;
     }
-    .ns-pop .ns-pop-meta {
-      color: #5d6d52;
-      font-size: 12px;
+    .ns-sheet[data-open="true"] {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
     }
-    .ns-pop .ns-pop-price {
+    @media (min-width: 900px) {
+      .ns-sheet {
+        right: auto;
+        width: 390px;
+      }
+    }
+    .ns-sheet-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ns-muted);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .ns-sheet h4 {
+      margin: 0 26px 4px 0;
+      font-size: 18px;
       font-weight: 700;
+    }
+    .ns-sheet .ns-sheet-line {
+      margin: 2px 0;
+      font-size: 13px;
+      color: var(--ns-muted);
+    }
+    .ns-sheet .ns-sheet-price {
+      margin: 8px 0 2px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .ns-sheet .ns-sheet-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .ns-sheet code {
+      word-break: break-all;
+    }
+    .ns-map-label {
+      padding: 2px 7px !important;
+      border: 1px solid var(--ns-line) !important;
+      border-radius: 999px !important;
+      background: light-dark(rgba(255, 255, 255, 0.94), rgba(20, 24, 16, 0.9)) !important;
+      color: var(--ns-ink) !important;
+      font-size: 11px !important;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18) !important;
+    }
+    .ns-map-label::before {
+      display: none;
     }
     .leaflet-container {
       font-family: var(--ns-font);
@@ -1860,7 +1928,13 @@ html>body{padding:0}</style>
   </div>
   <div id="courts-list"></div>
   </div>
-  <div id="courts-map"></div>
+  <div class="ns-map-wrap">
+    <div id="courts-map"></div>
+    <div class="ns-sheet" id="courts-sheet" data-open="false" aria-live="polite" aria-label="场地信息卡">
+      <button class="ns-sheet-close" type="button" id="courts-sheet-close" aria-label="关闭信息卡">×</button>
+      <div id="courts-sheet-body"></div>
+    </div>
+  </div>
   <div class="viz-controls" id="courts-share-bar" hidden>
     <span class="text-small text-muted" id="courts-picked">🧺 已选 0 个场地</span>
     <button class="btn btn-primary" type="button" id="courts-copy">📋 复制发给客户</button>
@@ -1947,6 +2021,9 @@ html>body{padding:0}</style>
   const sceneButtons = Array.from(root.querySelectorAll("[data-scene]"));
   const viewButtons = Array.from(root.querySelectorAll("[data-view-btn]"));
   const mapEl = root.querySelector("#courts-map");
+  const sheetEl = root.querySelector("#courts-sheet");
+  const sheetBodyEl = root.querySelector("#courts-sheet-body");
+  const sheetCloseEl = root.querySelector("#courts-sheet-close");
 
   const saved = (window.openai && window.openai.widgetState) || {};
   let scene = typeof saved.scene === "string" ? saved.scene : "all";
@@ -1961,6 +2038,8 @@ html>body{padding:0}</style>
   let markersLayer = null;
   let originDot = null;
   let tileErrorShown = false;
+  let sheetRowId = null;
+  let sheetOpenedAt = 0;
 
   function loadFlags(source) {
     if (!source || typeof source !== "object") return;
@@ -2289,18 +2368,90 @@ html>body{padding:0}</style>
       .replace(/"/g, "&quot;");
   }
 
-  function popupHtml(row, origin) {
+  function sheetHtml(row, origin) {
     const prices = [];
     if (row.wdDay !== null && row.wdDay !== undefined) prices.push("平日日场 " + priceText(row.wdDay));
     if (row.wdNight !== null && row.wdNight !== undefined) prices.push("晚场 " + priceText(row.wdNight));
     if (row.weekend !== null && row.weekend !== undefined) prices.push("周末 " + priceText(row.weekend));
-    const attrs = [];
-    if (row.indoor) attrs.push("室内");
-    if (row.kind === "学练馆") attrs.push("学练馆");
     const flag = rowFlags(row);
-    if (flag.shade) attrs.push("遮阴");
-    if (flag.cover) attrs.push("风雨场");
-    const nav =
+    const badges = [];
+    if (row.free) badges.push("免费");
+    if (row.indoor) badges.push("室内");
+    if (row.kind === "学练馆") badges.push("学练馆");
+    if (flag.shade) badges.push("遮阴");
+    if (flag.cover) badges.push("风雨场");
+    if (row.night) badges.push("通宵");
+    const isPhone = /^[0-9-]{6,}$/.test(row.contact);
+    return (
+      "<h4>" +
+      esc(row.name) +
+      "</h4>" +
+      '<div class="ns-sheet-line">' +
+      esc(row.area) +
+      " · 距" +
+      esc(originName) +
+      " <strong>" +
+      distanceKm(origin, row).toFixed(1) +
+      "km</strong> · " +
+      esc(row.open) +
+      "–" +
+      esc(row.close) +
+      "</div>" +
+      (badges.length
+        ? '<div class="ns-sheet-line">' +
+          badges
+            .map(function (item) {
+              return '<span class="viz-badge">' + esc(item) + "</span>";
+            })
+            .join(" ") +
+          "</div>"
+        : "") +
+      '<div class="ns-sheet-price">' +
+      esc(prices.length ? prices.join(" ｜ ") : "价格以场馆公示为准") +
+      "</div>" +
+      '<div class="ns-sheet-line">' +
+      esc(row.addr) +
+      "</div>" +
+      '<div class="ns-sheet-line">订场：' +
+      esc(row.book.replace(/订场$/, "")) +
+      " " +
+      (isPhone ? '<a href="tel:' + esc(row.contact) + '">' + esc(row.contact) + "</a>" : esc(row.contact)) +
+      "</div>" +
+      (row.link ? '<div class="ns-sheet-line"><code>' + esc(row.link) + "</code></div>" : "")
+    );
+  }
+
+  function openSheet(row) {
+    const origin = findOrigin(originName);
+    sheetRowId = String(row.id);
+    sheetOpenedAt = Date.now();
+    sheetBodyEl.innerHTML = sheetHtml(row, origin);
+
+    const actions = document.createElement("div");
+    actions.className = "ns-sheet-actions";
+
+    const pickBtn = document.createElement("button");
+    pickBtn.type = "button";
+    pickBtn.className = "btn btn-primary";
+    const already = selected.has(String(row.id));
+    pickBtn.textContent = already ? "✓ 已加入要发的内容" : "选中，发给客户";
+    pickBtn.addEventListener("click", function () {
+      if (selected.has(String(row.id))) {
+        selected.delete(String(row.id));
+        pickBtn.textContent = "选中，发给客户";
+      } else {
+        selected.add(String(row.id));
+        pickBtn.textContent = "✓ 已加入要发的内容";
+      }
+      render();
+      save();
+    });
+
+    const navBtn = document.createElement("a");
+    navBtn.className = "btn";
+    navBtn.target = "_blank";
+    navBtn.rel = "noreferrer";
+    navBtn.href =
       "https://uri.amap.com/marker?position=" +
       row.lon +
       "," +
@@ -2308,35 +2459,19 @@ html>body{padding:0}</style>
       "&name=" +
       encodeURIComponent(row.name) +
       "&coordinate=gaode&callnative=1";
-    return (
-      '<div class="ns-pop"><strong>' +
-      esc(row.name) +
-      "</strong><br>" +
-      '<span class="ns-pop-meta">' +
-      esc(row.area) +
-      " · 距" +
-      esc(originName) +
-      " " +
-      distanceKm(origin, row).toFixed(1) +
-      "km · " +
-      esc(row.open) +
-      "–" +
-      esc(row.close) +
-      (attrs.length ? " · " + esc(attrs.join(" · ")) : "") +
-      "</span><br>" +
-      '<span class="ns-pop-price">' +
-      esc(prices.length ? prices.join(" ｜ ") : "价格以场馆公示为准") +
-      "</span><br>" +
-      '<span class="ns-pop-meta">订场：' +
-      esc(row.book.replace(/订场$/, "")) +
-      " " +
-      esc(row.contact) +
-      "</span><br>" +
-      (row.link ? "<code>" + esc(row.link) + "</code><br>" : "") +
-      '<a href="' +
-      nav +
-      '" target="_blank" rel="noreferrer">地图导航 ↗</a></div>'
-    );
+    navBtn.textContent = "地图导航 ↗";
+
+    actions.append(pickBtn, navBtn);
+    sheetBodyEl.append(actions);
+    sheetEl.setAttribute("data-open", "true");
+    save();
+  }
+
+  function closeSheet() {
+    if (!sheetRowId) return;
+    sheetRowId = null;
+    sheetEl.setAttribute("data-open", "false");
+    refreshMap();
   }
 
   function ensureLeaflet(done) {
@@ -2395,8 +2530,9 @@ html>body{padding:0}</style>
       .layers({ "标准地图": standard, "卫星图": satellite }, null, { position: "topright" })
       .addTo(map);
     markersLayer = window.L.layerGroup().addTo(map);
-    map.on("popupopen", function () {
-      map.invalidateSize();
+    map.on("click", function () {
+      if (Date.now() - sheetOpenedAt < 600) return;
+      closeSheet();
     });
   }
 
@@ -2420,18 +2556,42 @@ html>body{padding:0}</style>
       .addTo(map);
     bounds.push([origin.lat, origin.lon]);
 
+    const byDistance = visibleRows.slice().sort(function (a, b) {
+      return distanceKm(origin, a) - distanceKm(origin, b);
+    });
+    const labelled = {};
+    byDistance.slice(0, visibleRows.length <= 16 ? 5 : 3).forEach(function (row) {
+      labelled[String(row.id)] = true;
+    });
+
     visibleRows.forEach(function (row) {
       const flag = rowFlags(row);
       const highlighted = flag.shade || flag.cover || row.indoor || row.kind === "学练馆";
-      window.L.circleMarker([row.lat, row.lon], {
-        radius: 7,
+      const active = String(row.id) === sheetRowId;
+      const marker = window.L.circleMarker([row.lat, row.lon], {
+        radius: active ? 10 : labelled[String(row.id)] ? 8 : 7,
         color: "#1e2a15",
-        weight: 2,
+        weight: active ? 4 : 2,
         fillColor: highlighted ? "#d4f04a" : "#ffffff",
         fillOpacity: 1
-      })
-        .bindPopup(popupHtml(row, origin))
-        .addTo(markersLayer);
+      });
+      if (labelled[String(row.id)]) {
+        marker.bindTooltip(shortName(row.name), {
+          permanent: true,
+          direction: "right",
+          offset: [9, 0],
+          className: "ns-map-label"
+        });
+      } else {
+        marker.bindTooltip(shortName(row.name), { direction: "top", offset: [0, -8], className: "ns-map-label" });
+      }
+      marker.on("click", function (event) {
+        if (event && window.L && window.L.DomEvent) {
+          window.L.DomEvent.stopPropagation(event);
+        }
+        openSheet(row);
+      });
+      marker.addTo(markersLayer);
       bounds.push([row.lat, row.lon]);
     });
 
@@ -2439,6 +2599,14 @@ html>body{padding:0}</style>
       map.fitBounds(window.L.latLngBounds(bounds).pad(0.18));
     }
     map.invalidateSize();
+  }
+
+  function shortName(name) {
+    return String(name)
+      .replace(/（.*?）/g, "")
+      .replace(/\(.*?\)/g, "")
+      .replace(/网球/g, "")
+      .trim();
   }
 
   function applyView(next, silent) {
@@ -2590,6 +2758,10 @@ html>body{padding:0}</style>
       applyView(button.dataset.viewBtn, false);
     });
   }
+
+  sheetCloseEl.addEventListener("click", function () {
+    closeSheet();
+  });
 
   function fallbackCopy() {
     shareEl.focus();
